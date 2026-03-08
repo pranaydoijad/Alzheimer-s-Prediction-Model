@@ -10,7 +10,7 @@ import streamlit as st
 from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.feature_selection import SelectFromModel
 from sklearn.svm import LinearSVC
-from sklearn.metrics import classification_report,confusion_matrix,accuracy_score
+from sklearn.metrics import classification_report,accuracy_score
 from lightgbm import LGBMClassifier
 from xgboost import XGBClassifier
 from sklearn.pipeline import Pipeline
@@ -20,7 +20,7 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.svm import SVC
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
-    classification_report, confusion_matrix
+     confusion_matrix
 )
 import pandas as pd
 import numpy as np
@@ -31,6 +31,8 @@ from sklearn.preprocessing import StandardScaler
 from imblearn.over_sampling import SMOTE
 import warnings
 warnings.filterwarnings('ignore')
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # open model in read binary mode
 load = open('pipe.pkl','rb')
@@ -47,53 +49,62 @@ def main():
     st.title('Alzheimer’s Disease Classification')
     tab1, tab2 = st.tabs(["📊 Model Info","🔍 Prediction"])
     df = pd.read_csv("alzheimers_disease_data.csv")
-    X = df.drop(['PatientID', 'Diagnosis', 'DoctorInCharge'], axis=1)
-    y = df['Diagnosis']
+    X = df.drop("Diagnosis", axis=1)
+    y = df["Diagnosis"]
+
     X_train, X_test, y_train, y_test = train_test_split(
-    X, y, 
-    test_size=0.2,
-    random_state=42,
-    stratify=y
-)
+        X, y, test_size=0.2, random_state=42  # use same random_state as training!
+        )
+    X_train=X_train[['SleepQuality', 'MMSE', 'FunctionalAssessment', 'MemoryComplaints', 'BehavioralProblems', 'ADL']]
+    X_test=X_test[['SleepQuality', 'MMSE', 'FunctionalAssessment', 'MemoryComplaints', 'BehavioralProblems', 'ADL']]
+
 #########################################################################################################################   
     with tab1:
         st.title('Alzheimer’s Disease Classification Model Info')
-        pipe2 = Pipeline([
-            ('feature_selection', SelectKBest(score_func=f_classif)),
-            ('scaler', StandardScaler()),
-            ('model', GradientBoostingClassifier(
-                # --- Core ---
-                n_estimators=100,        # Number of boosting stages (trees)
-                learning_rate=0.1,       # Shrinks contribution of each tree
-                random_state=42,
+        model.fit(X_train, y_train)
+        ypred=model.predict(X_test)
+        # Accuracies
+        st.write("Train Accuracy:", model.score(X_train, y_train)*100)
+        st.write("Test Accuracy:", model.score(X_test, y_test)*100)
 
-                # --- Regularization ---
-                max_depth=3,             # Depth of each tree (main regularizer)
-                min_samples_split=2,     # Min samples to split an internal node
-                min_samples_leaf=1,      # Min samples required at a leaf node
-                max_features='sqrt',     # Features considered per split ('sqrt', 'log2', float)
-                subsample=0.8,           # Fraction of samples per tree (< 1.0 = stochastic GB)
-                max_leaf_nodes=None,     # Limit number of leaves per tree
-                
-                # --- Loss ---
-                loss='log_loss',         # 'log_loss' or 'exponential' (AdaBoost-like)
-                
-                # --- Early Stopping ---
-                n_iter_no_change=10,     # Stop if no improvement for N rounds
-                validation_fraction=0.1, # Data fraction used for early stopping
-                tol=1e-4,                # Tolerance for early stopping
-                
-                # --- Speed ---
-                warm_start=False,        # Reuse previous fit (add more trees incrementally)
-                ))
-            ])
-        selector = pipe2.named_steps['feature_selection']
+        # Classification Report
+        
+        
+
+        report = classification_report(y_test, ypred, output_dict=True)  # ← add output_dict=True
+        st.dataframe(pd.DataFrame(report).transpose())
+
+        # Confusion Matrix
+        
+        cm = confusion_matrix(y_test, ypred)
+        fig, ax = plt.subplots()
+        sns.heatmap(cm, annot=True, fmt='d', ax=ax)
+        ax.set_xlabel("Predicted")
+        ax.set_ylabel("Actual")
+        st.pyplot(fig)
+        selector = model.named_steps['feature_selection']
         # Get boolean mask of selected features
         selected_mask = selector.get_support()
         # Get selected feature names
         selected_features = X_train.columns[selected_mask].tolist()
         print(f"Number of features selected: {len(selected_features)}")
-        print(f"Selected features: {selected_features}")
+        #print(f"Selected features: {selected_features}")
+        st.write(f"Number of features selected: {len(selected_features)}")
+        #st.write(f"Selected features: {selected_features}")
+        
+        selector = model.named_steps['feature_selection']
+        # Get feature scores and selected mask
+        feature_scores = pd.DataFrame({
+            'feature': X_train.columns,
+            'score': selector.scores_,
+            'selected': selector.get_support()
+            }).sort_values('score', ascending=False)
+        print(feature_scores)
+        st.dataframe(feature_scores)
+        # Get only selected feature names
+        selected_features = X_train.columns[selector.get_support()].tolist()
+        print("\nSelected features:", selected_features)
+        st.success(f"✅ Selected Features: {selected_features}")
 #########################################################################################################################        
     with tab2:
         st.title('Alzheimer’s Disease Prediction')
