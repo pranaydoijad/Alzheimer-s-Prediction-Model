@@ -1,12 +1,9 @@
-pickle
 scikit-learn
 streamlit
 lightgbm
 xgboost
 pandas
 numpy
-matplotlib.pyplot
+matplotlib
 seaborn
-imblearn.over_sampling
-
-warnings
+imbalanced-learn
