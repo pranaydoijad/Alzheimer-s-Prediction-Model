@@ -1,5 +1,5 @@
 pickle
-sklearn
+scikit-learn
 streamlit
 lightgbm
 xgboost
@@ -8,4 +8,5 @@ numpy
 matplotlib.pyplot
 seaborn
 imblearn.over_sampling
+
 warnings
